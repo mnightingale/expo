@@ -26,6 +26,10 @@ export declare type RecordingOptions = {
         linearPCMIsBigEndian?: boolean;
         linearPCMIsFloat?: boolean;
     };
+    web: {
+        mimeType?: string;
+        bitsPerSecond?: number;
+    };
 };
 export declare const RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_DEFAULT = 0;
 export declare const RECORDING_OPTION_ANDROID_OUTPUT_FORMAT_THREE_GPP = 1;
@@ -94,6 +98,7 @@ export declare type RecordingStatus = {
     isDoneRecording: boolean;
     durationMillis: number;
     metering?: number;
+    uri?: string | null;
 };
 export { PermissionResponse, PermissionStatus };
 export declare function getPermissionsAsync(): Promise<PermissionResponse>;
