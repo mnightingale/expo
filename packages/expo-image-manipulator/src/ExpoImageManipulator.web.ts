@@ -3,6 +3,7 @@ import { CodedError } from '@unimodules/core';
 import {
   ImageResult,
   SaveOptions,
+  SaveFormat,
   Action,
   ActionCrop,
   ActionResize,
@@ -195,6 +196,15 @@ function getResults(canvas: HTMLCanvasElement, options?: SaveOptions): ImageResu
     if (options.format === 'png' && options.compress !== undefined) {
       console.warn('compress is not supported with png format.');
     }
+
+    // Fill transparent pixels with white
+    if (format === SaveFormat.JPEG) {
+      const context = getContext(canvas);
+      context.globalCompositeOperation = 'destination-over';
+      context.fillStyle = 'white';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
     const quality = Math.min(1, Math.max(0, options.compress || 1));
     base64 = canvas.toDataURL('image/' + format, quality);
   } else {

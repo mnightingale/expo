@@ -9,6 +9,7 @@
 ### 🐛 Bug fixes
 
 - Fix resize action validator to allow providing just one of `width` or `height`. ([#13369](https://github.com/expo/expo/pull/13369) by [@cruzach](https://github.com/cruzach))
+- Fix black background on Web.
 
 ### 💡 Others
 

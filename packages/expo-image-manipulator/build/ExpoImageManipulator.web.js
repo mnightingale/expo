@@ -1,5 +1,5 @@
 import { CodedError } from '@unimodules/core';
-import { FlipType, } from './ImageManipulator.types';
+import { SaveFormat, FlipType, } from './ImageManipulator.types';
 /**
  * Hermite resize - fast image resize/resample using Hermite filter. 1 cpu version!
  * https://stackoverflow.com/a/18320662/4047926
@@ -135,6 +135,13 @@ function getResults(canvas, options) {
         const { format = 'png' } = options;
         if (options.format === 'png' && options.compress !== undefined) {
             console.warn('compress is not supported with png format.');
+        }
+        // Fill transparent pixels with white
+        if (format === SaveFormat.JPEG) {
+            const context = getContext(canvas);
+            context.globalCompositeOperation = 'destination-over';
+            context.fillStyle = 'white';
+            context.fillRect(0, 0, canvas.width, canvas.height);
         }
         const quality = Math.min(1, Math.max(0, options.compress || 1));
         base64 = canvas.toDataURL('image/' + format, quality);
