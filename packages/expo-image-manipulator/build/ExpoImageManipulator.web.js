@@ -132,8 +132,8 @@ function getContext(canvas) {
 function getResults(canvas, options) {
     let base64;
     if (options) {
-        const { format = 'png' } = options;
-        if (options.format === 'png' && options.compress !== undefined) {
+        const { format = SaveFormat.PNG } = options;
+        if (options.format === SaveFormat.PNG && options.compress !== undefined) {
             console.warn('compress is not supported with png format.');
         }
         // Fill transparent pixels with white
