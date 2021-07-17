@@ -13,8 +13,11 @@
 - Fix resize action validator to allow providing just one of `width` or `height`. ([#13369](https://github.com/expo/expo/pull/13369) by [@cruzach](https://github.com/cruzach))
 - Fix Android `manipulateAsync` returns incorrect height (original unmanipulated height).
 - Fixed Android to use filename extension consistent with other platforms.
+- Fixed web support for multiple actions.
 
 ### 💡 Others
+
+- Refactored web to pass canvases to each action avoiding multiple calls to `toDataURL`.
 
 ## 9.2.0 — 2021-06-16
 
