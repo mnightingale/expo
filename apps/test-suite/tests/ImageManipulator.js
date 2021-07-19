@@ -1,6 +1,7 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
+import { Platform } from 'react-native';
 
 export const name = 'ImageManipulator';
 
@@ -40,7 +41,12 @@ export async function test(t) {
         const result = await ImageManipulator.manipulateAsync(image.localUri, [
           { resize: { width: 100, height: 100 } },
         ]);
-        t.expect(result.uri.endsWith('.jpg')).toBe(true);
+
+        if (Platform.OS === 'web') {
+          t.expect(result.uri.startsWith('data:image/jpeg;base64,')).toBe(true);
+        } else {
+          t.expect(result.uri.endsWith('.jpg')).toBe(true);
+        }
       });
 
       t.it('saves as JPEG', async () => {
@@ -52,7 +58,11 @@ export async function test(t) {
           }
         );
 
-        t.expect(result.uri.endsWith('.jpg')).toBe(true);
+        if (Platform.OS === 'web') {
+          t.expect(result.uri.startsWith('data:image/jpeg;base64,')).toBe(true);
+        } else {
+          t.expect(result.uri.endsWith('.jpg')).toBe(true);
+        }
       });
 
       t.it('saves as PNG', async () => {
@@ -64,7 +74,11 @@ export async function test(t) {
           }
         );
 
-        t.expect(result.uri.endsWith('.png')).toBe(true);
+        if (Platform.OS === 'web') {
+          t.expect(result.uri.startsWith('data:image/png;base64,')).toBe(true);
+        } else {
+          t.expect(result.uri.endsWith('.png')).toBe(true);
+        }
       });
 
       t.it('provides Base64 with no newline terminator', async () => {
@@ -90,10 +104,17 @@ export async function test(t) {
           }
         );
 
-        const imageInfo = await FileSystem.getInfoAsync(image.localUri);
-        const resultInfo = await FileSystem.getInfoAsync(result.uri);
+        if (Platform.OS === 'web') {
+          const imageInfo = await fetch(image.localUri).then(a => a.blob());
+          const resultInfo = await fetch(result.uri).then(a => a.blob());
 
-        t.expect(imageInfo.size).toBeGreaterThan(resultInfo.size);
+          t.expect(imageInfo.size).toBeGreaterThan(resultInfo.size);
+        } else {
+          const imageInfo = await FileSystem.getInfoAsync(image.localUri);
+          const resultInfo = await FileSystem.getInfoAsync(result.uri);
+
+          t.expect(imageInfo.size).toBeGreaterThan(resultInfo.size);
+        }
       });
 
       t.it('rotates images', async () => {
@@ -125,7 +146,7 @@ export async function test(t) {
         t.expect(result.width).toBe(100);
       });
 
-      t.it('cropes image', async () => {
+      t.it('crops image', async () => {
         const result = await ImageManipulator.manipulateAsync(image.localUri, [
           { crop: { originX: 20, originY: 20, width: 100, height: 100 } },
         ]);
