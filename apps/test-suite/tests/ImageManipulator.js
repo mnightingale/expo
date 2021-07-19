@@ -1,6 +1,6 @@
-import * as ImageManipulator from 'expo-image-manipulator';
-import * as FileSystem from 'expo-file-system';
 import { Asset } from 'expo-asset';
+import * as FileSystem from 'expo-file-system';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export const name = 'ImageManipulator';
 
@@ -18,6 +18,18 @@ export async function test(t) {
         const result = await ImageManipulator.manipulateAsync(image.localUri, [
           { resize: { width: 100, height: 100 } },
         ]);
+        t.expect(result).toBeDefined();
+        t.expect(typeof result.uri).toBe('string');
+        t.expect(typeof result.width).toBe('number');
+        t.expect(typeof result.height).toBe('number');
+      });
+
+      t.it('returns valid image from base64 data URL', async () => {
+        // 1x1 red image
+        const result = await ImageManipulator.manipulateAsync(
+          'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8DwHwAFBQIAX8jx0gAAAABJRU5ErkJggg==',
+          [{ resize: { width: 100, height: 100 } }]
+        );
         t.expect(result).toBeDefined();
         t.expect(typeof result.uri).toBe('string');
         t.expect(typeof result.width).toBe('number');
