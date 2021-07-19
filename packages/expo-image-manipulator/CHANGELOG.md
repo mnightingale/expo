@@ -14,6 +14,7 @@
 - Fix Android `manipulateAsync` returns incorrect height (original unmanipulated height).
 - Fixed Android to use filename extension consistent with other platforms.
 - Fixed web support for multiple actions.
+- Fixed rotation on web to go in a clockwise direction.
 
 ### 💡 Others
 

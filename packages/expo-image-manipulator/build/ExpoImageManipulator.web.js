@@ -112,7 +112,7 @@ function drawImage(img, x = 0, y = 0, angle = 0, xFlip = false, yFlip = false, w
     // Set the origin to the center of the image
     context.translate(x + result.width / 2, y + result.height / 2);
     // Rotate the canvas around the origin
-    const radians = 2 * Math.PI - (angle * Math.PI) / 180;
+    const radians = (angle * Math.PI) / 180;
     context.rotate(radians);
     // Flip/flop the canvas
     const xScale = xFlip ? -1 : 1;
