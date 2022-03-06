@@ -3,30 +3,27 @@ package expo.modules.av.player;
 import android.content.Context;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-
 import android.text.TextUtils;
 import android.util.Log;
 import android.util.Pair;
 import android.view.Surface;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.Nullable;
-
 import com.google.android.exoplayer2.C;
-import com.google.android.exoplayer2.ExoPlaybackException;
+import com.google.android.exoplayer2.ExoPlayer;
 import com.google.android.exoplayer2.MediaItem;
+import com.google.android.exoplayer2.PlaybackException;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
-import com.google.android.exoplayer2.SimpleExoPlayer;
-import com.google.android.exoplayer2.source.ExtractorMediaSource;
+import com.google.android.exoplayer2.source.DefaultMediaSourceFactory;
 import com.google.android.exoplayer2.source.LoadEventInfo;
 import com.google.android.exoplayer2.source.MediaLoadData;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.MediaSourceEventListener;
+import com.google.android.exoplayer2.source.ProgressiveMediaSource;
 import com.google.android.exoplayer2.source.dash.DashMediaSource;
 import com.google.android.exoplayer2.source.dash.DefaultDashChunkSource;
 import com.google.android.exoplayer2.source.hls.HlsMediaSource;
+import com.google.android.exoplayer2.source.rtsp.RtspMediaSource;
 import com.google.android.exoplayer2.source.smoothstreaming.DefaultSsChunkSource;
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource;
 import com.google.android.exoplayer2.trackselection.AdaptiveTrackSelection;
@@ -38,22 +35,24 @@ import com.google.android.exoplayer2.upstream.DataSpec;
 import com.google.android.exoplayer2.upstream.DefaultBandwidthMeter;
 import com.google.android.exoplayer2.upstream.RawResourceDataSource;
 import com.google.android.exoplayer2.util.Util;
-import com.google.android.exoplayer2.video.VideoListener;
+import com.google.android.exoplayer2.video.VideoSize;
 
 import java.io.IOException;
 import java.util.Map;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import expo.modules.av.AVManagerInterface;
 import expo.modules.av.AudioFocusNotAcquiredException;
 import expo.modules.av.player.datasource.DataSourceFactoryProvider;
 
 class SimpleExoPlayerData extends PlayerData
-  implements Player.EventListener, MediaSourceEventListener, VideoListener {
+  implements Player.Listener, MediaSourceEventListener {
 
   private static final String IMPLEMENTATION_NAME = "SimpleExoPlayer";
   private static final String TAG = SimpleExoPlayerData.class.getSimpleName();
 
-  private SimpleExoPlayer mSimpleExoPlayer = null;
+  private ExoPlayer mSimpleExoPlayer = null;
   private final String mOverridingExtension;
   private LoadCompletionListener mLoadCompletionListener = null;
   private boolean mFirstFrameRendered = false;
@@ -87,29 +86,31 @@ class SimpleExoPlayerData extends PlayerData
     final TrackSelector trackSelector = new DefaultTrackSelector(context, new AdaptiveTrackSelection.Factory());
 
     // Create the player
-    mSimpleExoPlayer = new SimpleExoPlayer.Builder(context)
-        .setTrackSelector(trackSelector)
-        .setBandwidthMeter(bandwidthMeter)
-        .build();
+    mSimpleExoPlayer = new ExoPlayer.Builder(context)
+      .setTrackSelector(trackSelector)
+      .setBandwidthMeter(bandwidthMeter)
+      .build();
 
     mSimpleExoPlayer.addListener(this);
-    mSimpleExoPlayer.addVideoListener(this);
 
     // Produces DataSource instances through which media data is loaded.
     final DataSource.Factory dataSourceFactory = mAVModule.getModuleRegistry()
-        .getModule(DataSourceFactoryProvider.class)
-        .createFactory(
-            mReactContext,
-            mAVModule.getModuleRegistry(),
-            Util.getUserAgent(context, "yourApplicationName"),
-            mRequestHeaders,
-            bandwidthMeter.getTransferListener());
+      .getModule(DataSourceFactoryProvider.class)
+      .createFactory(
+        mReactContext,
+        mAVModule.getModuleRegistry(),
+        Util.getUserAgent(context, "yourApplicationName"),
+        mRequestHeaders,
+        bandwidthMeter.getTransferListener()
+      );
+
     try {
       // This is the MediaSource representing the media to be played.
       final MediaSource source = buildMediaSource(mUri, mOverridingExtension, dataSourceFactory);
 
       // Prepare the player with the source.
-      mSimpleExoPlayer.prepare(source);
+      mSimpleExoPlayer.setMediaSource(source);
+      mSimpleExoPlayer.prepare();
       setStatus(status, null);
     } catch (IllegalStateException e) {
       onFatalError(e);
@@ -255,30 +256,12 @@ class SimpleExoPlayerData extends PlayerData
 
   // endregion
 
-  // region ExoPlayer.EventListener
+  // region Player.Listener
 
   @Override
-  public void onLoadingChanged(final boolean isLoading) {
+  public void onIsLoadingChanged(boolean isLoading) {
     mIsLoading = isLoading;
     callStatusUpdateListener();
-  }
-
-  @Override
-  public void onPlaybackParametersChanged(PlaybackParameters parameters) {
-  }
-
-  @Override
-  public void onSeekProcessed() {
-
-  }
-
-  @Override
-  public void onRepeatModeChanged(int repeatMode) {
-  }
-
-  @Override
-  public void onShuffleModeEnabledChanged(boolean shuffleModeEnabled) {
-
   }
 
   @Override
@@ -304,12 +287,12 @@ class SimpleExoPlayerData extends PlayerData
   }
 
   @Override
-  public void onPlayerError(final ExoPlaybackException error) {
+  public void onPlayerError(final PlaybackException error) {
     onFatalError(error.getCause());
   }
 
   @Override
-  public void onPositionDiscontinuity(int reason) {
+  public void onPositionDiscontinuity(Player.PositionInfo oldPosition, Player.PositionInfo newPosition, int reason) {
     // According to the documentation:
     // > A period defines a single logical piece of media, for example a media file.
     // > It may also define groups of ads inserted into the media,
@@ -317,7 +300,7 @@ class SimpleExoPlayerData extends PlayerData
     // Source: https://google.github.io/ExoPlayer/doc/reference/com/google/android/exoplayer2/Timeline.Period.html
     // So I guess it's safe to say that when a period transition happens,
     // media file transition happens, so we just finished playing one.
-    if (reason == Player.DISCONTINUITY_REASON_PERIOD_TRANSITION) {
+    if (reason == Player.DISCONTINUITY_REASON_AUTO_TRANSITION) {
       callStatusUpdateListenerWithDidJustFinish();
     }
   }
@@ -328,12 +311,12 @@ class SimpleExoPlayerData extends PlayerData
 
   @Override
   public void onLoadError(
-      int windowIndex,
-      @Nullable MediaSource.MediaPeriodId mediaPeriodId,
-      LoadEventInfo loadEventInfo,
-      MediaLoadData mediaLoadData,
-      IOException error,
-      boolean wasCanceled
+    int windowIndex,
+    @Nullable MediaSource.MediaPeriodId mediaPeriodId,
+    LoadEventInfo loadEventInfo,
+    MediaLoadData mediaLoadData,
+    IOException error,
+    boolean wasCanceled
   ) {
     if (mLoadCompletionListener != null) {
       final LoadCompletionListener listener = mLoadCompletionListener;
@@ -358,9 +341,9 @@ class SimpleExoPlayerData extends PlayerData
   // region VideoListener
 
   @Override
-  public void onVideoSizeChanged(final int width, final int height, final int unAppliedRotationDegrees, final float pixelWidthHeightRatio) {
+  public void onVideoSizeChanged(VideoSize videoSize) {
     // TODO other params?
-    mVideoWidthHeight = new Pair<>(width, height);
+    mVideoWidthHeight = new Pair<>(videoSize.width, videoSize.height);
     if (mFirstFrameRendered && mVideoSizeUpdateListener != null) {
       mVideoSizeUpdateListener.onVideoSizeUpdate(mVideoWidthHeight);
     }
@@ -396,40 +379,13 @@ class SimpleExoPlayerData extends PlayerData
         return new DashMediaSource.Factory(new DefaultDashChunkSource.Factory(factory), factory).createMediaSource(MediaItem.fromUri(uri));
       case C.TYPE_HLS:
         return new HlsMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(uri));
+      case C.TYPE_RTSP:
+        return new RtspMediaSource.Factory().createMediaSource(MediaItem.fromUri(uri));
       case C.TYPE_OTHER:
-        return new ExtractorMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(uri));
+        return new ProgressiveMediaSource.Factory(factory).createMediaSource(MediaItem.fromUri(uri));
       default: {
         throw new IllegalStateException("Content of this type is unsupported at the moment. Unsupported type: " + type);
       }
     }
   }
-
-  // region MediaSourceEventListener
-
-  @Override
-  public void onLoadStarted(int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-
-  }
-
-  @Override
-  public void onLoadCompleted(int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-
-  }
-
-  @Override
-  public void onLoadCanceled(int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId, LoadEventInfo loadEventInfo, MediaLoadData mediaLoadData) {
-
-  }
-
-  @Override
-  public void onUpstreamDiscarded(int windowIndex, MediaSource.MediaPeriodId mediaPeriodId, MediaLoadData mediaLoadData) {
-
-  }
-
-  @Override
-  public void onDownstreamFormatChanged(int windowIndex, @Nullable MediaSource.MediaPeriodId mediaPeriodId, MediaLoadData mediaLoadData) {
-
-  }
-
-  // endregion
 }
